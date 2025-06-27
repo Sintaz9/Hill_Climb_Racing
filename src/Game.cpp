@@ -179,7 +179,6 @@ void Game::render() {
 
         // Декорации
         for (auto& deco : decorations) {
-            deco.update(camera->getView());
             deco.draw(window);
         }
 
@@ -252,21 +251,11 @@ void Game::setupWorld() {
         float x = pt.x * SCALE + decXOffset(rng) * 50.f;
         float y = pt.y * SCALE;
 
-        if (decType(rng) <= 1) {
-            decorations.emplace_back(
-                bushTexture,
-                sf::Vector2f(x, y),
-                0.8f,
-                y
-            );
+        if (decType(rng) <= 2) {
+            decorations.emplace_back(bushTexture, sf::Vector2f(x, y));
         }
         else {
-            decorations.emplace_back(
-                treeTexture,
-                sf::Vector2f(x, y),
-                0.7f,
-                y
-            );
+            decorations.emplace_back(treeTexture, sf::Vector2f(x, y));
         }
     }
 

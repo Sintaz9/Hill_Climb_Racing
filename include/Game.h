@@ -35,25 +35,18 @@ struct Cloud {
 
 struct Decoration {
     sf::Sprite sprite;
-    float parallaxFactor;
-    sf::Vector2f originalPosition;
-    float groundY;
+    sf::Vector2f position;
 
-    Decoration(const sf::Texture& texture, const sf::Vector2f& position, float parallax, float groundHeight)
-        : parallaxFactor(parallax), originalPosition(position), groundY(groundHeight) {
+    Decoration(const sf::Texture& texture, const sf::Vector2f& pos)
+        : position(pos) {
         sprite.setTexture(texture);
-        sprite.setPosition(position);
+        sprite.setPosition(pos);
 
         sf::FloatRect bounds = sprite.getLocalBounds();
         sprite.setOrigin(bounds.width / 2, bounds.height);
 
         float scale = 0.4f + (std::rand() % 20) * 0.01f;
         sprite.setScale(scale, scale);
-    }
-
-    void update(const sf::View& view) {
-        float x = originalPosition.x - (view.getCenter().x - view.getSize().x / 2) * (1.0f - parallaxFactor);
-        sprite.setPosition(x, groundY);
     }
 
     void draw(sf::RenderWindow& window) const {
