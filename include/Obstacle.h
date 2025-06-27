@@ -11,18 +11,15 @@ public:
 
     void update();
     void draw(sf::RenderWindow& window) const;
-    bool shouldBreak(b2Body* carBody) const;
-    void breakApart(b2World& world);
+    bool shouldBreak(b2Body* carBody) const { return false; } // Просто возвращаем false
+
+    b2Vec2 getPosition() const {
+        return mainBody->GetPosition();
+    }
 
 private:
     b2Body* mainBody;
     sf::Sprite sprite;
-    bool broken;
-
-    std::vector<b2Body*> fragments;
-    std::vector<sf::Sprite> fragmentSprites;
-
-    void createFragments(b2World& world);
 };
 
 #endif // OBSTACLE_H

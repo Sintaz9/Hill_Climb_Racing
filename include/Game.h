@@ -83,6 +83,7 @@ private:
     std::vector<bool> coinsCollected;
     std::unique_ptr<Camera> camera;
 
+
     std::vector<Cloud> clouds;
     std::vector<Decoration> decorations;
     sf::Texture cloudTexture;
@@ -125,7 +126,13 @@ private:
     sf::Clock gameClock;
     float nitroAmount;
     bool nitroActive;
-
+    struct CoinAnim {
+        size_t index;
+        float timer;
+        float startScale;
+    };
+    std::vector<CoinAnim> animatingCoins;
+    const float COIN_ANIM_TIME = 0.3f; // Длительность анимации в секундах
     // Меню
     Menu menu;
     bool inMenu;

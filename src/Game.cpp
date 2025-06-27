@@ -106,24 +106,53 @@ void Game::update(float dt) {
     float speedRatio = car->getSpeed() / car->getMaxSpeed();
     camera->update(sf::Vector2f(carPos.x * SCALE, carPos.y * SCALE), speedRatio, dt);
 
+                                                                                        // Настройка сбора монет
+    const float coinCollectionDistance = 60.0f; // Расстояние сбора в пикселях
+    const float squaredDistance = coinCollectionDistance * coinCollectionDistance; // Квадрат расстояния для оптимизации
+
+    //Сбор монет:
     for (size_t i = 0; i < coins.size(); ++i) {
         if (!coinsCollected[i]) {
             sf::Vector2f coinPos = coins[i].getPosition();
-            float dist = std::hypot(carPos.x * SCALE - coinPos.x, carPos.y * SCALE - coinPos.y);
-            if (dist < 50.0f) {
+            b2Vec2 carPos = car->getPosition();
+
+            float dx = carPos.x * SCALE - coinPos.x;
+            float dy = carPos.y * SCALE - coinPos.y;
+            float distSqr = dx * dx + dy * dy;
+
+            if (distSqr < squaredDistance) {
                 coinsCollected[i] = true;
-                score += 10;
+                score += 1;
+
+                // Запускаем анимацию
+                animatingCoins.push_back({ i, 0.0f, coins[i].getScale().x });
             }
         }
     }
 
-    for (auto& obstacle : obstacles) {
-        obstacle.update();
-        if (obstacle.shouldBreak(car->getBody())) {
-            obstacle.breakApart(world);
+    // Обновляем анимации монет
+    for (auto it = animatingCoins.begin(); it != animatingCoins.end(); ) {
+        it->timer += dt;
+        float progress = it->timer / COIN_ANIM_TIME;
+
+        if (progress >= 1.0f) {
+            it = animatingCoins.erase(it);
+        }
+        else {
+            // Анимация увеличения и исчезновения
+            float scale = it->startScale * (1.0f + progress); // Увеличиваем
+            float alpha = 255 * (1.0f - progress); // Прозрачность
+            coins[it->index].setScale(scale, scale);
+            coins[it->index].setColor(sf::Color(255, 255, 255, alpha));
+            ++it;
         }
     }
-
+    // Удаляем только те препятствия, которые далеко за кадром
+    float cameraLeft = camera->getView().getCenter().x - camera->getView().getSize().x / 2 - 1500.f;
+    obstacles.erase(std::remove_if(obstacles.begin(), obstacles.end(),
+        [cameraLeft](const Obstacle& o) {
+            return o.getPosition().x < cameraLeft;
+        }), obstacles.end());
     updateHUD();
 }
 void Game::drawHUD() {
@@ -258,7 +287,22 @@ void Game::setupWorld() {
             decorations.emplace_back(treeTexture, sf::Vector2f(x, y));
         }
     }
+    // Генерация препятствий
+    std::uniform_int_distribution<int> obstacleInterval(100, 300);
+    obstacles.clear();
 
+    for (size_t i = 0; i < terrain.getPoints().size(); i += obstacleInterval(rng)) {
+        if (i >= terrain.getPoints().size()) break;
+
+        b2Vec2 pos = terrain.getPoints()[i];
+        pos.y -= 0.8f; // Чуть выше поверхности
+
+        // Проверяем, что препятствие не слишком близко к старту
+        if (pos.x > 20.0f) {
+            obstacles.emplace_back(world, obstacleTexture, pos,
+                currentTheme == EARTH ? .8f : 0.4f); //Размер препятствий
+        }
+    }
     // Генерация монет
     std::uniform_int_distribution<int> coinInterval(50, 150);
     coins.clear();
@@ -289,7 +333,7 @@ void Game::setupWorld() {
         currentTheme == EARTH ? 1.2f : 0.6f);
     car->getBody()->SetTransform(b2Vec2(startX, startY), 0);
 
-    // Настройка камеры
+                                                                     // Настройка камеры
     camera->setZoom(currentTheme == EARTH ? 2.0f : 3.0f);
     camera->setWorldBounds(sf::FloatRect(
         0, -500,
