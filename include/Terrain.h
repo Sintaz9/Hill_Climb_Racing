@@ -16,4 +16,5 @@ public:
 private:
     std::vector<b2Vec2> points;
     b2Body* groundBody;
+    sf::Texture terrainTexture; // Добавленный член класса
 };

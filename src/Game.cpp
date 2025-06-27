@@ -17,6 +17,11 @@ Game::Game() :
 
     window.setFramerateLimit(60);
 
+    // Установка иконки окна
+    sf::Image icon;
+    if (icon.loadFromFile("imgs/icon.png")) {
+        window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
+    }
     // Загрузка текстур
     if (!backgroundTexture.loadFromFile("imgs/background.jpg") ||
         !coinTexture.loadFromFile("imgs/coin.png") ||
@@ -288,7 +293,7 @@ void Game::setupWorld() {
         }
     }
     // Генерация препятствий
-    std::uniform_int_distribution<int> obstacleInterval(100, 300);
+    std::uniform_int_distribution<int> obstacleInterval(50, 100);
     obstacles.clear();
 
     for (size_t i = 0; i < terrain.getPoints().size(); i += obstacleInterval(rng)) {
@@ -431,6 +436,13 @@ void Game::changeTheme(Theme newTheme) {
             window.close();
         }
     }
+    groundTexture.setRepeated(true);
+    // При создании вершинного массива (sf::VertexArray) правильно задайте UV-координаты:
+    sf::VertexArray vertices(sf::Quads, 4);
+    vertices[0].texCoords = sf::Vector2f(0.f, 0.f);
+    vertices[1].texCoords = sf::Vector2f(groundTexture.getSize().x, 0.f); // Используйте реальный размер текстуры
+    vertices[2].texCoords = sf::Vector2f(groundTexture.getSize().x, groundTexture.getSize().y);
+    vertices[3].texCoords = sf::Vector2f(0.f, groundTexture.getSize().y);
 
     backgroundSprite.setTexture(backgroundTexture);
     backgroundSprite.setScale(

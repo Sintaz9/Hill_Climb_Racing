@@ -58,28 +58,31 @@ void Terrain::createPhysics(b2World& world) {
 
 sf::VertexArray Terrain::createMesh(const sf::Texture& texture) {
     sf::VertexArray mesh(sf::TriangleStrip);
-    float textureRepeat = 10.0f; // Частота повторения текстуры
+    terrainTexture = texture;
+    terrainTexture.setRepeated(true); // Добавьте эту строку
+
+    const float textureScale = 0.1f; // Масштаб текстуры (подберите значение)
+    const float textureHeightRatio = 0.2f; // Отношение высоты текстуры к высоте меша
 
     for (size_t i = 0; i < points.size(); ++i) {
         float x = points[i].x * SCALE;
         float yTop = points[i].y * SCALE;
 
-        // Вершина сверху (поверхность)
+        // Вершина сверху
         mesh.append(sf::Vertex(
             sf::Vector2f(x, yTop),
-            sf::Vector2f(x / textureRepeat, 0)
+            sf::Vector2f(x * textureScale, 0)
         ));
 
-        // Вершина снизу (дно)
+        // Вершина снизу
         mesh.append(sf::Vertex(
-            sf::Vector2f(x, 10000.0f), // Достаточно большое значение для "дна"
-            sf::Vector2f(x / textureRepeat, texture.getSize().y)
+            sf::Vector2f(x, yTop + texture.getSize().y * textureHeightRatio),
+            sf::Vector2f(x * textureScale, texture.getSize().y)
         ));
     }
 
     return mesh;
 }
-
 const std::vector<b2Vec2>& Terrain::getPoints() const {
     return points;
 }

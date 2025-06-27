@@ -150,12 +150,16 @@ void Car::createWheels(b2World& world) {
     b2WheelJointDef jointDef;
     jointDef.Initialize(carBody, leftWheel, leftWheel->GetPosition(), b2Vec2(0, 1));
     jointDef.motorSpeed = 0.0f;
-    jointDef.maxMotorTorque = 30.0f;  // Увеличенный крутящий момент
+    jointDef.maxMotorTorque = 50.0f;  // Увеличенный крутящий момент
     jointDef.enableMotor = true;
-    jointDef.stiffness = 12.0f;       // Более жесткая подвеска
-    jointDef.damping = 6.0f;          // Улучшенная амортизация
+    jointDef.stiffness = 20.0f;       // Более жесткая подвеска
+    jointDef.damping = 10.0f;         // Улучшенная амортизация
+    jointDef.lowerTranslation = -0.1f;
+    jointDef.upperTranslation = 0.1f;
+    jointDef.enableLimit = true;
     leftJoint = (b2WheelJoint*)world.CreateJoint(&jointDef);
 
+    // Аналогично для правого колеса
     jointDef.Initialize(carBody, rightWheel, rightWheel->GetPosition(), b2Vec2(0, 1));
     rightJoint = (b2WheelJoint*)world.CreateJoint(&jointDef);
 }
