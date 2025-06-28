@@ -1,73 +1,68 @@
 #include "../include/Camera.h"
 #include <algorithm>
+#include <cmath>
 
 Camera::Camera(sf::RenderWindow& window, float baseZoom, float zoomRange)
-    : window(window), baseZoom(baseZoom), zoomRange(zoomRange) {
-    reset();
-}
-
-void Camera::reset() {
-    view = window.getDefaultView();
-    currentZoom = baseZoom;
-    targetZoom = baseZoom;
-    worldBounds = { 0, -500, 10000, 5000 };
+    : m_window(window),
+    m_baseZoom(baseZoom),
+    m_zoomRange(zoomRange),
+    m_currentZoom(baseZoom),
+    m_targetZoom(baseZoom) {
+    m_view = window.getDefaultView();
+    m_worldBounds = { 0, -500, 10000, 5000 };
+    m_velocity = { 0, 0 };
 }
 
 void Camera::setWorldBounds(const sf::FloatRect& bounds) {
-    worldBounds = bounds;
-}
-
-void Camera::setZoom(float zoom) {
-    currentZoom = zoom;
-    targetZoom = zoom;
-    view.setSize(window.getDefaultView().getSize());
-    view.zoom(currentZoom);
+    m_worldBounds = bounds;
 }
 
 void Camera::update(const sf::Vector2f& targetPos, float speedRatio, float dt) {
-    // Убедимся, что speedRatio в допустимых пределах
-    speedRatio = std::clamp(speedRatio, 0.0f, 1.0f);
+    // 1. Set target parameters
+    m_targetPosition = targetPos + sf::Vector2f(m_followDistance + m_xOffset, m_followHeight);
+    m_targetZoom = m_baseZoom + (m_zoomRange * speedRatio);
 
-    // Целевая позиция камеры (машина смещена вправо на 30% экрана)
-    float xOffset = view.getSize().x * 0.3f;
-    targetPosition = targetPos + sf::Vector2f(xOffset, -100.f);
+    // 2. Smooth movement (SmoothDamp)
+    sf::Vector2f delta = m_targetPosition - m_currentPosition;
 
-    // Плавное движение камеры
-    float lerpFactor = std::min(5.0f * dt, 1.0f);
-    currentPosition += (targetPosition - currentPosition) * lerpFactor;
+    if (dt > 0) {
+        m_velocity = delta * (1.0f / m_smoothTime);
+        float maxSpeed = 2000.f;
+        float currentSpeed = std::sqrt(m_velocity.x * m_velocity.x + m_velocity.y * m_velocity.y);
+        if (currentSpeed > maxSpeed) {
+            m_velocity = m_velocity * (maxSpeed / currentSpeed);
+        }
+    }
 
-    // Динамический зум
-    targetZoom = baseZoom - zoomRange * speedRatio;
-    currentZoom += (targetZoom - currentZoom) * lerpFactor;
-    currentZoom = std::clamp(currentZoom, baseZoom - zoomRange, baseZoom);
+    m_currentPosition += m_velocity * dt;
 
-    // Применение параметров
-    view.setSize(window.getDefaultView().getSize());
-    view.zoom(currentZoom);
-    view.setCenter(currentPosition);
+    // 3. Smooth zoom
+    float zoomLerpFactor = std::min(5.0f * dt, 1.0f);
+    m_currentZoom += (m_targetZoom - m_currentZoom) * zoomLerpFactor;
 
-    // Ограничение камеры границами мира
-    sf::Vector2f viewHalfSize = view.getSize() / 2.f;
+    // 4. Apply parameters
+    m_view.setSize(m_window.getDefaultView().getSize());
+    m_view.zoom(m_currentZoom);
+    m_view.setCenter(m_currentPosition);
 
-    float left = std::max(worldBounds.left + viewHalfSize.x, viewHalfSize.x);
-    float right = std::max(worldBounds.left + worldBounds.width - viewHalfSize.x, viewHalfSize.x);
-    float top = std::max(worldBounds.top + viewHalfSize.y, viewHalfSize.y);
-    float bottom = std::max(worldBounds.top + worldBounds.height - viewHalfSize.y, viewHalfSize.y);
+    // 5. Clamp to world bounds
+    sf::Vector2f viewHalfSize = m_view.getSize() / 2.f;
 
-    sf::Vector2f center = view.getCenter();
+    float left = std::max(m_worldBounds.left + viewHalfSize.x, viewHalfSize.x);
+    float right = std::max(m_worldBounds.left + m_worldBounds.width - viewHalfSize.x, viewHalfSize.x);
+    float top = std::max(m_worldBounds.top + viewHalfSize.y, viewHalfSize.y);
+    float bottom = std::max(m_worldBounds.top + m_worldBounds.height - viewHalfSize.y, viewHalfSize.y);
+
+    sf::Vector2f center = m_view.getCenter();
     center.x = std::clamp(center.x, left, right);
     center.y = std::clamp(center.y, top, bottom);
-    view.setCenter(center);
+    m_view.setCenter(center);
 }
 
 void Camera::applyToWindow() {
-    window.setView(view);
+    m_window.setView(m_view);
 }
 
 const sf::View& Camera::getView() const {
-    return view;
-}
-
-float Camera::getZoom() const {
-    return currentZoom;
+    return m_view;
 }
