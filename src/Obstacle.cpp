@@ -3,31 +3,46 @@
 constexpr float SCALE = 100.0f;
 
 Obstacle::Obstacle(b2World& world, const sf::Texture& texture, const b2Vec2& position, float density) {
+    // Создание динамического тела
     b2BodyDef bodyDef;
-    bodyDef.type = b2_staticBody; // Изменено с dynamic на static
+    bodyDef.type = b2_dynamicBody;
     bodyDef.position = position;
-    mainBody = world.CreateBody(&bodyDef);
+    body = world.CreateBody(&bodyDef);
 
+    // Создание фикстуры
     b2PolygonShape box;
-    box.SetAsBox(0.5f, 0.5f);//размер препятствия
+    box.SetAsBox(0.5f, 0.5f); // Размер 1x1 метр
 
     b2FixtureDef fixture;
     fixture.shape = &box;
     fixture.density = density;
-    fixture.friction = 0.8f; // Увеличено трение
-    fixture.restitution = 0.1f; // Уменьшен отскок
+    fixture.friction = 0.8f;
+    fixture.restitution = 0.4f; // Упругость
 
-    mainBody->CreateFixture(&fixture);
+    body->CreateFixture(&fixture);
+
+    // Настройка спрайта
+    sprite.setTexture(texture);
+    sprite.setOrigin(texture.getSize().x / 2.0f, texture.getSize().y / 2.0f);
+    sprite.setScale(0.2f, 0.2f);
 }
 
 void Obstacle::update() {
     sprite.setPosition(
-        mainBody->GetPosition().x * SCALE,
-        mainBody->GetPosition().y * SCALE
+        body->GetPosition().x * SCALE,
+        body->GetPosition().y * SCALE
     );
-    sprite.setRotation(mainBody->GetAngle() * 180.0f / b2_pi);
+    sprite.setRotation(body->GetAngle() * 180.0f / b2_pi);
 }
+
 void Obstacle::draw(sf::RenderWindow& window) const {
-        window.draw(sprite);
-   
+    window.draw(sprite);
+}
+
+b2Vec2 Obstacle::getPosition() const {
+    return body->GetPosition();
+}
+
+b2Body* Obstacle::getBody() const {
+    return body;
 }

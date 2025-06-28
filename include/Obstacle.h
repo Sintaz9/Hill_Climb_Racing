@@ -1,24 +1,16 @@
-#ifndef OBSTACLE_H
-#define OBSTACLE_H
-
-#include <box2d/box2d.h>
+#pragma once
+#include <Box2D/Box2D.h>
 #include <SFML/Graphics.hpp>
-#include <vector>
 
 class Obstacle {
 public:
     Obstacle(b2World& world, const sf::Texture& texture, const b2Vec2& position, float density);
     void update();
     void draw(sf::RenderWindow& window) const;
-    bool shouldBreak(b2Body* carBody) const { return false; } // Просто возвращаем false
-
-    b2Vec2 getPosition() const {
-        return mainBody->GetPosition();
-    }
+    b2Vec2 getPosition() const;
+    b2Body* getBody() const;
 
 private:
-    b2Body* mainBody;
+    b2Body* body;
     sf::Sprite sprite;
 };
-
-#endif // OBSTACLE_H

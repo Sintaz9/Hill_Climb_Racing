@@ -1,20 +1,26 @@
 #pragma once
-#include <Box2D/Box2D.h>
 #include <SFML/Graphics.hpp>
+#include <box2d/box2d.h>
 #include <vector>
 
 class Terrain {
 public:
-    Terrain();
+    Terrain(b2World& world, const sf::Texture& groundTexture);
 
-    void generate(int pointCount, float baseY);
-    void createPhysics(b2World& world);
-    sf::VertexArray createMesh(const sf::Texture& texture);
-
+    void draw(sf::RenderWindow& window) const;
     const std::vector<b2Vec2>& getPoints() const;
 
+    // Удаляем копирование
+    Terrain(const Terrain&) = delete;
+    Terrain& operator=(const Terrain&) = delete;
+
 private:
-    std::vector<b2Vec2> points;
-    b2Body* groundBody;
-    sf::Texture terrainTexture; // Добавленный член класса
+    void generateTerrain();
+    void createMesh();
+    void createPhysics(b2World& world);
+
+    std::vector<b2Vec2> terrainPoints;
+    sf::VertexArray groundMesh;
+    sf::RenderStates groundState;
+    const sf::Texture& groundTexture;
 };

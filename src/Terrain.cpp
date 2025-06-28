@@ -1,88 +1,93 @@
 #include "../include/Terrain.h"
 #include <random>
-#include <cmath>
+#include <algorithm>
 
 constexpr float SCALE = 100.0f;
+constexpr float TERRAIN_STEP = 2.0f;
+constexpr int TERRAIN_POINTS = 1000;
+constexpr float BASE_Y = 12.0f;
 
-Terrain::Terrain() : groundBody(nullptr) {
-    // Инициализация по умолчанию
+Terrain::Terrain(b2World& world, const sf::Texture& groundTexture)
+    : groundTexture(groundTexture) {
+
+    generateTerrain();
+    createMesh();
+    createPhysics(world);
 }
-void Terrain::generate(int pointCount, float baseY) {
-    points.clear();
+
+void Terrain::generateTerrain() {
     std::mt19937 rng(std::random_device{}());
-    
-    const float stepX = 2.0f;
     std::uniform_real_distribution<float> baseStep(-0.6f, 0.6f);
-    std::uniform_real_distribution<float> extraStep(-6.0f, 6.0f);
+    std::uniform_real_distribution<float> extraStep(-4.0f, 4.0f);
     std::uniform_real_distribution<float> spikeChance(0.f, 1.f);
 
-    float y = baseY;
-    points.reserve(pointCount);
+    terrainPoints.clear();
+    terrainPoints.reserve(TERRAIN_POINTS);
 
-    // Начальная платформа (5 точек)
-    for (int i = 0; i < 5; ++i) {
-        points.emplace_back(i * stepX, baseY);
+    // Начальная платформа
+    for (int i = 0; i < 20; ++i) {
+        terrainPoints.emplace_back(i * TERRAIN_STEP, BASE_Y);
     }
 
-    for (int i = 5; i < pointCount; ++i) {
-        float x = i * stepX;
-        float t = static_cast<float>(i) / pointCount;
+    float y = BASE_Y;
+    for (int i = 20; i < TERRAIN_POINTS; ++i) {
+        float x = i * TERRAIN_STEP;
+        float t = static_cast<float>(i) / TERRAIN_POINTS;
         float difficulty = std::pow(t, 2.0f);
 
-        float spike = (spikeChance(rng) < 0.05f + 0.1f * difficulty) 
+        float spike = (spikeChance(rng) < 0.05f + 0.1f * difficulty)
             ? extraStep(rng) * (0.5f + 2.0f * difficulty) : 0.f;
-        
-        float deltaY = baseStep(rng) + spike;
-        y += deltaY;
-        y = std::clamp(y, baseY - 30.f, baseY + 35.f);
-        
-        points.emplace_back(x, y);
+
+        y += std::clamp(baseStep(rng) + spike, -3.0f, 3.0f);
+        y = std::clamp(y, BASE_Y - 25.f, BASE_Y + 30.f);
+
+        terrainPoints.emplace_back(x, y);
     }
 }
+
+void Terrain::createMesh() {
+    groundMesh.setPrimitiveType(sf::TriangleStrip);
+    const float bottomY = 5000.0f; // Дно мира
+
+    for (const auto& pt : terrainPoints) {
+        float x = pt.x * SCALE;
+        float y = pt.y * SCALE;
+
+        // Верхняя точка
+        groundMesh.append(sf::Vertex(
+            sf::Vector2f(x, y),
+            sf::Vector2f(x / 100.f, 0)
+        ));
+
+        // Нижняя точка
+        groundMesh.append(sf::Vertex(
+            sf::Vector2f(x, bottomY),
+            sf::Vector2f(x / 100.f, (bottomY - y) / 100.f)
+        ));
+    }
+
+    groundState.texture = &groundTexture;
+}
+
 void Terrain::createPhysics(b2World& world) {
-    if (points.empty()) return;
-
     b2BodyDef groundDef;
-    groundBody = world.CreateBody(&groundDef);
+    b2Body* groundBody = world.CreateBody(&groundDef);
 
-    b2FixtureDef groundFixture;
-    groundFixture.friction = 0.9f;
+    b2FixtureDef fixtureDef;
+    fixtureDef.friction = 0.9f;
 
-    for (size_t i = 0; i < points.size() - 1; ++i) {
+    for (size_t i = 0; i + 1 < terrainPoints.size(); ++i) {
         b2EdgeShape edge;
-        edge.SetTwoSided(points[i], points[i + 1]);
-        groundFixture.shape = &edge;
-        groundBody->CreateFixture(&groundFixture);
+        edge.SetTwoSided(terrainPoints[i], terrainPoints[i + 1]);
+        fixtureDef.shape = &edge;
+        groundBody->CreateFixture(&fixtureDef);
     }
 }
 
-sf::VertexArray Terrain::createMesh(const sf::Texture& texture) {
-    sf::VertexArray mesh(sf::TriangleStrip);
-    terrainTexture = texture;
-    terrainTexture.setRepeated(true); // Добавьте эту строку
-
-    const float textureScale = 0.1f; // Масштаб текстуры (подберите значение)
-    const float textureHeightRatio = 0.2f; // Отношение высоты текстуры к высоте меша
-
-    for (size_t i = 0; i < points.size(); ++i) {
-        float x = points[i].x * SCALE;
-        float yTop = points[i].y * SCALE;
-
-        // Вершина сверху
-        mesh.append(sf::Vertex(
-            sf::Vector2f(x, yTop),
-            sf::Vector2f(x * textureScale, 0)
-        ));
-
-        // Вершина снизу
-        mesh.append(sf::Vertex(
-            sf::Vector2f(x, yTop + texture.getSize().y * textureHeightRatio),
-            sf::Vector2f(x * textureScale, texture.getSize().y)
-        ));
-    }
-
-    return mesh;
+void Terrain::draw(sf::RenderWindow& window) const {
+    window.draw(groundMesh, groundState);
 }
+
 const std::vector<b2Vec2>& Terrain::getPoints() const {
-    return points;
+    return terrainPoints;
 }

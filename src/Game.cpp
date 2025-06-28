@@ -2,12 +2,14 @@
 #include <sstream>
 #include <cmath>
 #include <random>
+#include <iostream>
 
 constexpr float SCALE = 100.0f;
 
 Game::Game() :
     window(sf::VideoMode::getDesktopMode(), "Hill Climb Racing", sf::Style::Fullscreen),
     world(b2Vec2(0, 0)),
+    terrain(world, groundTexture), // Инициализируем terrain здесь
     currentTheme(EARTH),
     score(0),
     distance(0),
@@ -25,7 +27,8 @@ Game::Game() :
     // Загрузка текстур
     if (!backgroundTexture.loadFromFile("imgs/background.jpg") ||
         !coinTexture.loadFromFile("imgs/coin.png") ||
-        !obstacleTexture.loadFromFile("imgs/Obstacle.png")) {
+        !obstacleTexture.loadFromFile("imgs/Obstacle.png") || 
+        !groundTexture.loadFromFile("imgs/grass.jpg")) {
         window.close();
     }
     if (!cloudTexture.loadFromFile("imgs/cloud.png") ||
@@ -36,6 +39,9 @@ Game::Game() :
     menu.setup(window.getSize());
     setupHUD();
     camera = std::make_unique<Camera>(window, 2.5f, 1.5f);
+
+    groundTexture.setRepeated(true);
+    groundTexture.setSmooth(true);
 }
 
 void Game::run() {
@@ -112,7 +118,7 @@ void Game::update(float dt) {
     camera->update(sf::Vector2f(carPos.x * SCALE, carPos.y * SCALE), speedRatio, dt);
 
                                                                                         // Настройка сбора монет
-    const float coinCollectionDistance = 60.0f; // Расстояние сбора в пикселях
+    const float coinCollectionDistance = 130.0f; // Расстояние сбора в пикселях
     const float squaredDistance = coinCollectionDistance * coinCollectionDistance; // Квадрат расстояния для оптимизации
 
     //Сбор монет:
@@ -130,7 +136,7 @@ void Game::update(float dt) {
                 score += 1;
 
                 // Запускаем анимацию
-                animatingCoins.push_back({ i, 0.0f, coins[i].getScale().x });
+                animatingCoins.push_back({ i, 2.0f, coins[i].getScale().x });
             }
         }
     }
@@ -152,12 +158,10 @@ void Game::update(float dt) {
             ++it;
         }
     }
-    // Удаляем только те препятствия, которые далеко за кадром
-    float cameraLeft = camera->getView().getCenter().x - camera->getView().getSize().x / 2 - 1500.f;
-    obstacles.erase(std::remove_if(obstacles.begin(), obstacles.end(),
-        [cameraLeft](const Obstacle& o) {
-            return o.getPosition().x < cameraLeft;
-        }), obstacles.end());
+    // Обновляем препятствия
+    for (auto& obstacle : obstacles) {
+        obstacle.update();
+    }
     updateHUD();
 }
 void Game::drawHUD() {
@@ -187,6 +191,120 @@ void Game::drawHUD() {
     window.setView(camera->getView());
 }
 
+
+
+
+
+void Game::setupWorld() {
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    world.SetGravity(b2Vec2(0, currentTheme == EARTH ? 9.8f : 1.6f));
+
+    // Генерация террейна
+    const int pointCount = currentTheme == EARTH ? 1000 : 1500;
+    const float baseY = currentTheme == EARTH ? 12.0f : 8.0f;
+    const float stepX = 2.0f;
+    // Основные параметры генерации
+    std::uniform_real_distribution<float> baseStep(-0.6f, 0.6f);
+    std::uniform_real_distribution<float> extraStep(-4.0f, 4.0f);
+    std::uniform_real_distribution<float> spikeChance(0.f, 1.f);
+    std::vector<b2Vec2> terrainPoints;
+
+    // Начальная плоская платформа (20 точек)
+    for (int i = 0; i < 20; ++i) {
+        terrainPoints.emplace_back(i * stepX, baseY);
+    }
+
+    // Генерация основного рельефа
+    float y = baseY;
+    for (int i = 20; i < pointCount; ++i) {
+        float x = i * stepX;
+        float t = static_cast<float>(i) / pointCount;
+        float difficulty = std::pow(t, 2.0f);
+
+        // Генерация неровностей
+        float spike = (spikeChance(rng) < 0.05f + 0.1f * difficulty)
+            ? extraStep(rng) * (0.5f + 2.0f * difficulty) : 0.f;
+
+        y += std::clamp(baseStep(rng) + spike, -3.0f, 3.0f);
+        y = std::clamp(y, baseY - 25.f, baseY + 30.f);
+
+        terrainPoints.emplace_back(x, y);
+    }
+
+
+    // Настройка камеры
+    float lastX = terrainPoints.back().x * SCALE;
+    camera->setWorldBounds(sf::FloatRect(0, -500, lastX, 5000));
+
+
+    // Генерация облаков (параллакс-эффект)
+    std::uniform_real_distribution<float> cloudXDist(0.f, lastX * 1.5f);
+    std::uniform_real_distribution<float> cloudYDist(-800.f, -200.f);
+    std::uniform_real_distribution<float> parallaxDist(0.1f, 0.9f);
+
+    clouds.clear();
+    for (int i = 0; i < 80; ++i) {
+        clouds.emplace_back(
+            cloudTexture,
+            sf::Vector2f(cloudXDist(rng), cloudYDist(rng)),
+            parallaxDist(rng)
+        );
+    }
+    // Генерация декораций (исправленная версия)
+    std::uniform_int_distribution<int> decType(0, 3);
+    std::uniform_real_distribution<float> decXOffset(-1.5f, 1.5f);
+
+    decorations.clear();
+    for (size_t i = 20; i < terrain.getPoints().size(); i += 10) {
+        const auto& pt = terrain.getPoints()[i];
+        float x = pt.x * SCALE + decXOffset(rng) * 70.f;
+        float y = pt.y * SCALE - 15.f; // Опускаем ниже поверхности
+
+        if (decType(rng) <= 2) {
+            decorations.emplace_back(bushTexture, sf::Vector2f(x, y));
+        }
+        else {
+            decorations.emplace_back(treeTexture, sf::Vector2f(x, y));
+        }
+    }
+    // Генерация препятствий
+    std::uniform_int_distribution<int> obstacleInterval(80, 150);
+    obstacles.clear();
+    for (size_t i = 30; i < terrainPoints.size(); i += obstacleInterval(rng)) {
+        b2Vec2 pos = terrainPoints[i];
+        pos.y -= 0.7f;  // Чуть выше поверхности
+        obstacles.emplace_back(world, obstacleTexture, pos,
+            currentTheme == EARTH ? 0.8f : 0.4f);
+    }
+
+    // Генерация монет
+    std::uniform_int_distribution<int> coinInterval(60, 120);
+    coins.clear();
+    coinsCollected.clear();
+    for (size_t i = 25; i < terrainPoints.size(); i += coinInterval(rng)) {
+        b2Vec2 pos = terrainPoints[i];
+        pos.y -= 1.2f;  // Выше поверхности
+
+        sf::Sprite coin(coinTexture);
+        coin.setOrigin(coinTexture.getSize().x / 2, coinTexture.getSize().y / 2);
+        coin.setScale(0.1f, 0.1f);
+        coin.setPosition(pos.x * SCALE, pos.y * SCALE);
+
+        coins.push_back(coin);
+        coinsCollected.push_back(false);
+    }
+
+    // Создание машины
+    float startX = terrainPoints[5].x + 1.5f;
+    float startY = terrainPoints[5].y - 1.8f;
+    car = std::make_unique<Car>(world,
+        currentTheme == EARTH ? 1.5f : 0.8f,
+        currentTheme == EARTH ? 1.2f : 0.6f);
+    car->getBody()->SetTransform(b2Vec2(startX, startY), 0);
+}
+
+
 void Game::render() {
     window.clear();
 
@@ -209,7 +327,7 @@ void Game::render() {
         }
 
         // Земля
-        window.draw(groundMesh, &groundTexture);
+        terrain.draw(window);
 
         // Декорации
         for (auto& deco : decorations) {
@@ -242,109 +360,9 @@ void Game::render() {
 
 
 
-void Game::setupWorld() {
-    // Инициализация генератора случайных чисел
-    std::random_device rd;
-    std::mt19937 rng(rd());
 
-    world.SetGravity(b2Vec2(0, currentTheme == EARTH ? 9.8f : 1.6f));
 
-    // Генерация террейна
-    terrain.generate(currentTheme == EARTH ? 1000 : 1500,
-        currentTheme == EARTH ? 12.0f : 8.0f);
 
-    // Создание физического тела земли
-    terrain.createPhysics(world);
-
-    // Создание графического меша
-    groundMesh = terrain.createMesh(groundTexture);
-
-    // Генерация облаков
-    std::uniform_real_distribution<float> cloudXDist(0.f, terrain.getPoints().back().x * SCALE);
-    std::uniform_real_distribution<float> cloudYDist(-800.f, -300.f);
-    std::uniform_real_distribution<float> parallaxDist(0.1f, 0.9f);
-
-    clouds.clear();
-    for (int i = 0; i < 100; ++i) {
-        clouds.emplace_back(
-            cloudTexture,
-            sf::Vector2f(cloudXDist(rng), cloudYDist(rng)),
-            parallaxDist(rng)
-        );
-    }
-
-    // Генерация декораций
-    std::uniform_int_distribution<int> decType(0, 3);
-    std::uniform_real_distribution<float> decXOffset(-0.5f, 0.5f);
-
-    decorations.clear();
-    for (size_t i = 0; i < terrain.getPoints().size(); i += 15) {
-        if (i >= terrain.getPoints().size()) break;
-
-        b2Vec2 pt = terrain.getPoints()[i];
-        float x = pt.x * SCALE + decXOffset(rng) * 50.f;
-        float y = pt.y * SCALE;
-
-        if (decType(rng) <= 2) {
-            decorations.emplace_back(bushTexture, sf::Vector2f(x, y));
-        }
-        else {
-            decorations.emplace_back(treeTexture, sf::Vector2f(x, y));
-        }
-    }
-    // Генерация препятствий
-    std::uniform_int_distribution<int> obstacleInterval(50, 100);
-    obstacles.clear();
-
-    for (size_t i = 0; i < terrain.getPoints().size(); i += obstacleInterval(rng)) {
-        if (i >= terrain.getPoints().size()) break;
-
-        b2Vec2 pos = terrain.getPoints()[i];
-        pos.y -= 0.8f; // Чуть выше поверхности
-
-        // Проверяем, что препятствие не слишком близко к старту
-        if (pos.x > 20.0f) {
-            obstacles.emplace_back(world, obstacleTexture, pos,
-                currentTheme == EARTH ? .8f : 0.4f); //Размер препятствий
-        }
-    }
-    // Генерация монет
-    std::uniform_int_distribution<int> coinInterval(50, 150);
-    coins.clear();
-    coinsCollected.clear();
-
-    for (size_t i = 0; i < terrain.getPoints().size(); i += coinInterval(rng)) {
-        if (i >= terrain.getPoints().size()) break;
-
-        b2Vec2 pos = terrain.getPoints()[i];
-        pos.y -= 1.0f;
-
-        sf::Sprite coin(coinTexture);
-        coin.setOrigin(coinTexture.getSize().x / 2, coinTexture.getSize().y / 2);
-        coin.setScale(0.1f, 0.1f);
-        coin.setPosition(pos.x * SCALE, pos.y * SCALE);
-
-        coins.push_back(coin);
-        coinsCollected.push_back(false);
-    }
-
-    // Создание машины
-    auto& points = terrain.getPoints();
-    float startX = points[0].x + 2.0f;
-    float startY = points[0].y - 2.0f;
-
-    car = std::make_unique<Car>(world,
-        currentTheme == EARTH ? 1.5f : 0.8f,
-        currentTheme == EARTH ? 1.2f : 0.6f);
-    car->getBody()->SetTransform(b2Vec2(startX, startY), 0);
-
-                                                                     // Настройка камеры
-    camera->setZoom(currentTheme == EARTH ? 2.0f : 3.0f);
-    camera->setWorldBounds(sf::FloatRect(
-        0, -500,
-        terrain.getPoints().back().x * SCALE, 5000
-    ));
-}
 void Game::setupHUD() {
     if (!font.loadFromFile("imgs/arial/arialmt.ttf")) {
         font.loadFromFile("C:/Windows/Fonts/Arial.ttf");
@@ -436,13 +454,10 @@ void Game::changeTheme(Theme newTheme) {
             window.close();
         }
     }
+
+    // Критически важные настройки текстуры
     groundTexture.setRepeated(true);
-    // При создании вершинного массива (sf::VertexArray) правильно задайте UV-координаты:
-    sf::VertexArray vertices(sf::Quads, 4);
-    vertices[0].texCoords = sf::Vector2f(0.f, 0.f);
-    vertices[1].texCoords = sf::Vector2f(groundTexture.getSize().x, 0.f); // Используйте реальный размер текстуры
-    vertices[2].texCoords = sf::Vector2f(groundTexture.getSize().x, groundTexture.getSize().y);
-    vertices[3].texCoords = sf::Vector2f(0.f, groundTexture.getSize().y);
+    groundTexture.setSmooth(true);
 
     backgroundSprite.setTexture(backgroundTexture);
     backgroundSprite.setScale(

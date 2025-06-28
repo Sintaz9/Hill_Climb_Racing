@@ -95,7 +95,6 @@ private:
     sf::Texture coinTexture;
     sf::Texture obstacleTexture;
     sf::Sprite backgroundSprite;
-    sf::VertexArray groundMesh;
 
     // Интерфейс
     sf::Font font;
@@ -136,6 +135,9 @@ private:
     // Меню
     Menu menu;
     bool inMenu;
+    //Удаляем копирование
+    Game(const Game&) = delete;
+    Game& operator=(const Game&) = delete;
 };
 
 #endif // GAME_H
