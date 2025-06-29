@@ -11,20 +11,20 @@ Obstacle::Obstacle(b2World& world, const sf::Texture& texture, const b2Vec2& pos
 
     // Создание фикстуры
     b2PolygonShape box;
-    box.SetAsBox(0.5f, 0.5f); // Размер 1x1 метр
+    box.SetAsBox(0.5f, 0.5); // Размер 1x1 метр
 
     b2FixtureDef fixture;
     fixture.shape = &box;
-    fixture.density = density;
-    fixture.friction = 0.8f;
-    fixture.restitution = 0.4f; // Упругость
+    fixture.density = density - 0.5f;
+    fixture.friction = 0.4f;
+    fixture.restitution = .5f; // Упругость
 
     body->CreateFixture(&fixture);
 
     // Настройка спрайта
     sprite.setTexture(texture);
     sprite.setOrigin(texture.getSize().x / 2.0f, texture.getSize().y / 2.0f);
-    sprite.setScale(0.2f, 0.2f);
+    sprite.setScale(0.1f, 0.1f);
 }
 
 void Obstacle::update() {

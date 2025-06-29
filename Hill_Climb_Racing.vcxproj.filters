@@ -36,6 +36,9 @@
     <ClCompile Include="src\Camera.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="src\Coin.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Game.h">
@@ -54,6 +57,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="include\Camera.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Coin.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

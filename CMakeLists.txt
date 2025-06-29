@@ -27,6 +27,7 @@ set(SOURCES
     "/src/Menu.cpp"
     "/src/Terrain.cpp"
     "/src/Obstacle.cpp"
+    "/src/Coin.cpp"
     "/src/Camera.cpp"
 )
 

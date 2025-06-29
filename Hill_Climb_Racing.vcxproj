@@ -138,6 +138,7 @@
   <ItemGroup>
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\Car.cpp" />
+    <ClCompile Include="src\Coin.cpp" />
     <ClCompile Include="src\Game.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Menu.cpp" />
@@ -147,6 +148,7 @@
   <ItemGroup>
     <ClInclude Include="include\Camera.h" />
     <ClInclude Include="include\Car.h" />
+    <ClInclude Include="include\Coin.h" />
     <ClInclude Include="include\Game.h" />
     <ClInclude Include="include\Menu.h" />
     <ClInclude Include="include\Obstacle.h" />

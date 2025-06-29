@@ -7,32 +7,33 @@ class Camera {
 public:
     Camera(sf::RenderWindow& window, float baseZoom, float zoomRange);
 
-    void setWorldBounds(const sf::FloatRect& bounds);
     void update(const sf::Vector2f& targetPos, float speedRatio, float dt);
     void applyToWindow();
     const sf::View& getView() const;
 
+    void setFollowParameters(float distance, float height, float smoothness);
+    void setZoomParameters(float baseZoom, float zoomRange);
+
 private:
     sf::RenderWindow& m_window;
     sf::View m_view;
-    sf::FloatRect m_worldBounds;
 
-    // Camera parameters
-    float m_baseZoom;
-    float m_zoomRange;
+    struct {
+        float distance = 300.f;    // Дистанция слежения по X
+        float height = -150.f;     // Базовое смещение по Y
+        float smoothness = 0.15f;  // Плавность движения
+    } m_followParams;
+
+    struct {
+        float base = 1.0f;        // Базовый зум
+        float range = 0.6f;       // Диапазон изменения зума
+    } m_zoomParams;
+
+    sf::Vector2f m_position;
     float m_currentZoom;
-    float m_targetZoom;
 
-    // Positioning
-    sf::Vector2f m_currentPosition;
-    sf::Vector2f m_targetPosition;
-    sf::Vector2f m_velocity;
-
-    // Follow parameters
-    float m_followDistance = 300.f;
-    float m_followHeight = -150.f;
-    float m_smoothTime = 0.2f;
-    float m_xOffset = 150.f; // Смещение камеры влево
+    sf::Vector2f calculateTargetPosition(const sf::Vector2f& targetPos, float speedRatio) const;
+    float calculateTargetZoom(float speedRatio) const;
 };
 
 #endif // CAMERA_H
