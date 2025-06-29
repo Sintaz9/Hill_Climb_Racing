@@ -5,7 +5,7 @@
 
 constexpr float SCALE = 100.0f;
 constexpr float TERRAIN_STEP = 2.0f;
-constexpr int TERRAIN_POINTS = 750;
+constexpr int TERRAIN_POINTS = 750; //Длина карты xTERRAIN_STEP
 constexpr float BASE_Y = 12.0f;
 
 Terrain::Terrain(b2World& world, const sf::Texture& groundTexture)
@@ -50,14 +50,15 @@ void Terrain::generateTerrain() {
 
     terrainPoints.clear();
     terrainPoints.reserve(TERRAIN_POINTS);
+    int i;
 
     // Начальная платформа
-    for (int i = 0; i < 20; ++i) {
+    for (i = 0; i < 10; ++i) {
         terrainPoints.emplace_back(i * TERRAIN_STEP, BASE_Y);
     }
 
     float y = BASE_Y;
-    for (int i = 20; i < TERRAIN_POINTS; ++i) {
+    for (i = 10; i < TERRAIN_POINTS; ++i) {
         float x = i * TERRAIN_STEP;
         float t = static_cast<float>(i) / TERRAIN_POINTS;
         float difficulty = std::pow(t, 2.0f);
@@ -76,28 +77,37 @@ void Terrain::generateTerrain() {
 
 void Terrain::createMesh() {
     groundMesh.setPrimitiveType(sf::TriangleStrip);
-    const float bottomY = 5000.0f; // Дно мира
+    const float bottomY = 5000.0f;
+    const float textureWidth = 204.0f;  // Ширина текстуры
+    const float textureHeight = 192.0f; // Высота текстуры
+    const float uvScale = 20.f;         // Масштаб UV-координат
 
-    // Добавляем дополнительные точки для сглаживания
-    const int SMOOTH_STEPS = 5;
+    float textureOffsetX = 0.0f;
+
     for (size_t i = 1; i + 2 < terrainPoints.size(); ++i) {
-        for (int j = 0; j < SMOOTH_STEPS; ++j) {
-            float t = static_cast<float>(j) / SMOOTH_STEPS;
+        for (int j = 0; j < 5; ++j) {
+            float t = static_cast<float>(j) / 5;
             b2Vec2 pt = calculateSmoothPoint(i, t);
 
             float x = pt.x * SCALE;
             float y = pt.y * SCALE;
 
-            // Верхняя точка
+            // Вычисляем длину сегмента в текстуре (горизонтальное наложение)
+            if (i > 0) {
+                float segmentLength = b2Distance(terrainPoints[i - 1], terrainPoints[i]) * SCALE;
+                textureOffsetX += segmentLength / textureWidth * uvScale;
+            }
+
+            // Верхняя точка (поверхность дороги)
             groundMesh.append(sf::Vertex(
                 sf::Vector2f(x, y),
-                sf::Vector2f(x / 100.f, 0)
+                sf::Vector2f(textureOffsetX, 0.0f) // Верх текстуры
             ));
 
-            // Нижняя точка
+            // Нижняя точка (дно мира)
             groundMesh.append(sf::Vertex(
                 sf::Vector2f(x, bottomY),
-                sf::Vector2f(x / 100.f, (bottomY - y) / 100.f)
+                sf::Vector2f(textureOffsetX, 1800.0f) // Низ текстуры (фиксированное значение)
             ));
         }
     }

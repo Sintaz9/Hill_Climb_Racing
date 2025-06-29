@@ -70,6 +70,8 @@ private:
     std::vector<Cloud> clouds;
     std::vector<Decoration> decorations;
 
+
+    float gravityTimer = 0.0f; // Добавляем таймер
     // Текстуры
     sf::Texture backgroundTexture;
     sf::Texture groundTexture;

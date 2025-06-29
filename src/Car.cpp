@@ -108,7 +108,7 @@ void Car::createCar(b2World& world, float density, float friction) {
     carDef.type = b2_dynamicBody;
     carDef.position.Set(5.0f, 5.0f); // Стартовая позиция
     carDef.linearDamping = 0.2f;     // Сопротивление движению
-    carDef.angularDamping = 0.5f;    // Сопротивление вращению
+    carDef.angularDamping = .8f;    // Сопротивление вращению
     carBody = world.CreateBody(&carDef);
 
     b2PolygonShape carBox;
@@ -117,7 +117,7 @@ void Car::createCar(b2World& world, float density, float friction) {
     //хар-ки машины(кузова)
     b2FixtureDef carFixture;
     carFixture.shape = &carBox;
-    carFixture.density = density;
+    carFixture.density = density + 1.f;
     carFixture.friction = friction;
     carBody->CreateFixture(&carFixture);
 }
@@ -130,7 +130,7 @@ void Car::createWheels(b2World& world) {
     wheelFixture.shape = &wheelShape;
     wheelFixture.density = 1.5f;
     wheelFixture.friction = 2.0f;
-    wheelFixture.restitution = 0.05f;
+    wheelFixture.restitution = 0.2f;
 
     // Левое колесо
     b2BodyDef leftWheelDef;

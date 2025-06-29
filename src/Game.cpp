@@ -138,7 +138,7 @@
     void Game::setupWorld() {
         std::random_device rd;
         std::mt19937 rng(rd());
-        world.SetGravity(b2Vec2(0, currentTheme == EARTH ? 9.8f : 1.6f));
+        world.SetGravity(b2Vec2(0, currentTheme == EARTH ? 10.8f : 4.6f));
 
         // Генерация террейна
         terrain = std::make_unique<Terrain>(world, groundTexture);
@@ -186,7 +186,7 @@
             }
         }
 
-        // В методе setupWorld() замените генерацию монет на:
+        // Генерация монет:
         std::uniform_int_distribution<int> coinInterval(5, 15);
         std::uniform_real_distribution<float> coinOffset(-1.5f, 1.5f);
         std::uniform_real_distribution<float> heightVariation(0.5f, 1.2f);
@@ -230,7 +230,7 @@
         car = std::make_unique<Car>(world,
             currentTheme == EARTH ? 1.5f : 0.8f,
             currentTheme == EARTH ? 1.2f : 0.6f);
-        car->getBody()->SetTransform(b2Vec2(startX, startY), 2 * b2_pi);
+        car->getBody()->SetTransform(b2Vec2(startX, startY), 0);
 
         terrain->draw(window);
         terrain->getPoints();
