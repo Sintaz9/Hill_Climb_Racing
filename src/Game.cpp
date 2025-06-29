@@ -186,37 +186,33 @@
             }
         }
 
-        // Генерация монет с разными типами
-        std::uniform_int_distribution<int> coinInterval(5, 15); // Уменьшили интервал для большего количества монет
-        std::uniform_real_distribution<float> coinHeight(1.2f, 3.0f);
-        std::uniform_real_distribution<float> coinOffset(-2.0f, 2.0f); // Увеличили диапазон смещения
-        std::uniform_int_distribution<int> coinType(0, 100);
+        // В методе setupWorld() замените генерацию монет на:
+        std::uniform_int_distribution<int> coinInterval(5, 15);
+        std::uniform_real_distribution<float> coinOffset(-1.5f, 1.5f);
+        std::uniform_real_distribution<float> heightVariation(0.5f, 1.2f);
 
         coins.clear();
         const auto& points = terrain->getPoints();
-        for (size_t i = 25; i < points.size() - 10; i += coinInterval(rng)) { // Добавили проверку на выход за границы
+        for (size_t i = 25; i < points.size() - 10; i += coinInterval(rng)) {
             b2Vec2 pos = points[i];
             pos.x += coinOffset(rng);
-            pos.y -= std::max(coinHeight(rng), 1.5f);
 
-            // Проверяем, чтобы монета не уходила под землю
-            if (i > 0 && pos.y > points[i - 1].y - 0.5f) {
-                pos.y = points[i - 1].y - 1.5f;
+            // Гарантированное размещение над дорогой
+            float minY = points[i].y;
+            if (i > 0) minY = std::min(minY, points[i - 1].y);
+            if (i < points.size() - 1) minY = std::min(minY, points[i + 1].y);
+
+            pos.y = minY - heightVariation(rng); // Всегда выше самой низкой точки
+
+            // Дополнительная проверка для крутых склонов
+            if (i > 1 && std::abs(points[i].y - points[i - 1].y) > 0.5f) {
+                pos.y = minY - 1.0f; // Больше отступ на склонах
             }
 
-            // Определяем тип монеты
-            Coin::Type type = Coin::Type::NORMAL;
-            int typeRoll = coinType(rng);
-            if (typeRoll > 90) {
-                type = Coin::Type::SPECIAL;
-            }
-            else if (typeRoll > 70) {
-                type = Coin::Type::GOLD;
-            }
-
-            coins.push_back(std::make_unique<Coin>(world, coinTexture, pos, type));
-            std::cout << "Coin generated at: " << pos.x << ", " << pos.y << std::endl; // Отладочный вывод
+            coins.push_back(std::make_unique<Coin>(world, coinTexture, pos));
         }
+
+
 
         // Генерация препятствий
         std::uniform_int_distribution<int> obstacleInterval(80, 150);
@@ -266,51 +262,30 @@
         camera->update(sf::Vector2f(carPos.x * SCALE, carPos.y * SCALE), speedRatio, dt);
 
         // Настройка сбора монет
-        const float coinCollectionDistance = 130.0f; // Расстояние сбора в пикселях
-        const float squaredDistance = coinCollectionDistance * coinCollectionDistance; // Квадрат расстояния для оптимизации
-
-        // Сбор монет
-        for (auto& coin : coins) {
-            if (!coin->isCollected()) {
+        const float collectionRadius = 1.7f;
+        for (auto it = coins.begin(); it != coins.end(); ) {
+            if (!(*it)->isCollected()) {
                 b2Vec2 carPos = car->getPosition();
-                b2Vec2 coinPos = coin->getPosition();
+                b2Vec2 coinPos = (*it)->getPosition();
 
                 float dx = carPos.x - coinPos.x;
                 float dy = carPos.y - coinPos.y;
                 float distSqr = dx * dx + dy * dy;
 
-                if (distSqr < 0.5f * 0.5f) {
-                    coin->collect();
-                    score += coin->getValue();
-                    std::cout << "Coin collected! Score: " << score << std::endl;
-
-                    animatingCoins.push_back({
-                        static_cast<size_t>(&coin - &coins[0]),
-                        0.0f,
-                        0.1f
-                        });
+                if (distSqr < collectionRadius * collectionRadius) {
+                    (*it)->collect();
+                    score += (*it)->getValue();
+                    it = coins.erase(it); // Немедленно удаляем собранную монету
+                    continue;
                 }
             }
+            ++it;
         }
-
+        for (auto& coin : coins) {
+            coin->update(dt); // Это вызовет вращение монет
+        }
         const auto& points = terrain->getPoints();
-        // Обновляем анимации монет
-        for (auto it = animatingCoins.begin(); it != animatingCoins.end(); ) {
-            it->timer += dt;
-            float progress = it->timer / COIN_ANIM_TIME;
-
-            if (progress >= 1.0f) {
-                it = animatingCoins.erase(it);
-            }
-            //else {
-            //    // Анимация увеличения и исчезновения
-            //    float scale = it->startScale * (1.0f + progress); // Увеличиваем
-            //    float alpha = 255 * (1.0f - progress); // Прозрачность
-            //    coins[it->index].setScale(scale, scale);
-            //    coins[it->index].setColor(sf::Color(255, 255, 255, alpha));
-            //    ++it;
-            //}
-        }
+       
         // Обновляем препятствия
         for (auto& obstacle : obstacles) {
             obstacle.update();
