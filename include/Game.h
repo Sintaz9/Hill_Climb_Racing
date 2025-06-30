@@ -40,7 +40,6 @@ public:
     bool gameFinished;
     sf::Sprite finishFlag;
     sf::Texture finishTexture;
-    sf::Text victoryText;
     float finishLineX;
 
     void setupFinish();
@@ -88,6 +87,7 @@ private:
     sf::Text distanceText;
     sf::Text timeText;
     sf::Text nitroText;
+    sf::Text victoryText;
     sf::RectangleShape nitroBar;
     sf::RectangleShape nitroBarBackground;
 

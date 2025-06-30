@@ -27,6 +27,10 @@ private:
     b2WheelJoint* leftJoint;
     b2WheelJoint* rightJoint;
 
+    sf::Texture wheelTexture;
+    sf::Sprite leftWheelSprite;
+    sf::Sprite rightWheelSprite;
+
     float currentSpeed;
     float targetSpeed;
     bool inAir;

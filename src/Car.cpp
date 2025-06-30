@@ -4,19 +4,53 @@ constexpr float SCALE = 100.0f;
 
 Car::Car(b2World& world, float density, float friction) :
     currentSpeed(0), targetSpeed(0), inAir(false), maxSpeed(50.0f) {
+
+    // Загрузка текстуры колеса
+    if (!wheelTexture.loadFromFile("imgs/wheel.png")) {
+        // Создаем простую текстуру колеса, если файл не найден
+        wheelTexture.create(56, 56);
+        sf::Uint8* pixels = new sf::Uint8[56 * 56 * 4];
+        for (int y = 0; y < 56; y++) {
+            for (int x = 0; x < 56; x++) {
+                int index = (y * 56 + x) * 4;
+                float dist = sqrt(pow(x - 28, 2) + pow(y - 28, 2));
+                if (dist < 28) {
+                    pixels[index] = 50;   // R
+                    pixels[index + 1] = 50; // G
+                    pixels[index + 2] = 50; // B
+                    pixels[index + 3] = 255; // A
+
+                    // Добавляем спицы
+                    if ((x % 10 < 2 || y % 10 < 2) && dist > 10) {
+                        pixels[index] = 100;
+                        pixels[index + 1] = 100;
+                        pixels[index + 2] = 100;
+                    }
+                }
+                else {
+                    pixels[index + 3] = 0; // Прозрачный
+                }
+            }
+        }
+        wheelTexture.update(pixels);
+        delete[] pixels;
+    }
+
+    leftWheelSprite.setTexture(wheelTexture);
+    rightWheelSprite.setTexture(wheelTexture);
+    leftWheelSprite.setOrigin(wheelTexture.getSize().x / 2, wheelTexture.getSize().y / 2);
+    rightWheelSprite.setOrigin(wheelTexture.getSize().x / 2, wheelTexture.getSize().y / 2);
+
     createCar(world, density, friction);
     createWheels(world);
+
     carShape.setFillColor(sf::Color::Red);
     carShape.setSize(sf::Vector2f(170, 80));
     carShape.setOrigin(85, 40);
 
-    leftWheelShape.setFillColor(sf::Color::Black);
-    leftWheelShape.setRadius(28);
-    leftWheelShape.setOrigin(28, 28);
-
-    rightWheelShape.setFillColor(sf::Color::Black);
-    rightWheelShape.setRadius(28);
-    rightWheelShape.setOrigin(28, 28);
+   //уменьшаем колеса
+    leftWheelSprite.setScale(0.1f, 0.1f);  
+    rightWheelSprite.setScale(0.1f, 0.1f); 
 }
 
 // Добавленные методы
@@ -59,11 +93,11 @@ void Car::update(float dt, bool nitroActive) {
     rightJoint->SetMotorSpeed(currentSpeed);
 
     // Управление наклоном
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-        carBody->SetAngularVelocity(1.2f);
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up) || sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+        carBody->SetAngularVelocity(1.f);
     }
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-        carBody->SetAngularVelocity(-1.2f);
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down) || sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+        carBody->SetAngularVelocity(-1.f);
     }
 
     // Проверка нахождения в воздухе
@@ -75,19 +109,23 @@ void Car::update(float dt, bool nitroActive) {
             }
         }
 }
+// Обновить метод draw:
 void Car::draw(sf::RenderWindow& window) const {
-    // Изменяем объекты через const_cast, так как SFML методы не const-correct
+    // Кузов машины
     sf::RectangleShape& mutableCarShape = const_cast<sf::RectangleShape&>(carShape);
     mutableCarShape.setPosition(carBody->GetPosition().x * SCALE, carBody->GetPosition().y * SCALE);
     mutableCarShape.setRotation(carBody->GetAngle() * 180.0f / b2_pi);
     window.draw(mutableCarShape);
 
-    sf::CircleShape& mutableLeftWheel = const_cast<sf::CircleShape&>(leftWheelShape);
+    // Колеса
+    sf::Sprite& mutableLeftWheel = const_cast<sf::Sprite&>(leftWheelSprite);
     mutableLeftWheel.setPosition(leftWheel->GetPosition().x * SCALE, leftWheel->GetPosition().y * SCALE);
+    mutableLeftWheel.setRotation(leftWheel->GetAngle() * 180.0f / b2_pi);
     window.draw(mutableLeftWheel);
 
-    sf::CircleShape& mutableRightWheel = const_cast<sf::CircleShape&>(rightWheelShape);
+    sf::Sprite& mutableRightWheel = const_cast<sf::Sprite&>(rightWheelSprite);
     mutableRightWheel.setPosition(rightWheel->GetPosition().x * SCALE, rightWheel->GetPosition().y * SCALE);
+    mutableRightWheel.setRotation(rightWheel->GetAngle() * 180.0f / b2_pi);
     window.draw(mutableRightWheel);
 }
 

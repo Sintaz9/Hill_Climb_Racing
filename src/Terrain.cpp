@@ -71,8 +71,8 @@ void Terrain::generateTerrain() {
 
         terrainPoints.emplace_back(x, y);
     }
-
-    finishLineX = terrainPoints.back().x - 10.0f;
+    // ‘инишна€ лини€ должна быть перед последней точкой трассы
+    finishLineX = terrainPoints[terrainPoints.size() - 20].x; // «а 20 точек до конца
 }
 
 void Terrain::createMesh() {
