@@ -1,3 +1,4 @@
+// Car.h
 #ifndef CAR_H
 #define CAR_H
 
@@ -16,7 +17,6 @@ public:
     b2Body* getBody() const;
     bool isInAir() const;
 
-    // Добавленные методы
     float getSpeed() const;
     float getMaxSpeed() const;
 
@@ -28,6 +28,8 @@ private:
     b2WheelJoint* rightJoint;
 
     sf::Texture wheelTexture;
+    sf::Texture carTexture;  // Добавлено для текстуры машины
+    sf::Sprite carSprite;    // Добавлено для спрайта машины
     sf::Sprite leftWheelSprite;
     sf::Sprite rightWheelSprite;
 
@@ -35,10 +37,6 @@ private:
     float targetSpeed;
     bool inAir;
     const float maxSpeed = 50.0f; // Максимальная скорость
-
-    mutable sf::RectangleShape carShape;
-    mutable sf::CircleShape leftWheelShape;
-    mutable sf::CircleShape rightWheelShape;
 
     void createCar(b2World& world, float density, float friction);
     void createWheels(b2World& world);

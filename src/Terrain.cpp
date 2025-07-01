@@ -44,16 +44,22 @@ b2Vec2 Terrain::calculateSmoothPoint(size_t i, float t) {
 
 void Terrain::generateTerrain() {
     std::mt19937 rng(std::random_device{}());
-    std::uniform_real_distribution<float> baseStep(-0.4f, 0.4f);
-    std::uniform_real_distribution<float> extraStep(-3.0f, 3.0f);
+    std::uniform_real_distribution<float> baseStep(-.7f, .7f);
+    std::uniform_real_distribution<float> extraStep(-3.5f, 3.5f);
     std::uniform_real_distribution<float> spikeChance(0.f, 1.f);
 
     terrainPoints.clear();
     terrainPoints.reserve(TERRAIN_POINTS);
     int i;
+    // Гора перед началом (левая стена)
+    for (int j = -4; j <= 0; ++j) {
+        float x = j * TERRAIN_STEP;
+        float y = BASE_Y - 10.f; // плавный скат
+        terrainPoints.push_back(b2Vec2(x, y));
+    }
 
     // Начальная платформа
-    for (i = 0; i < 10; ++i) {
+    for (i = 1; i < 10; ++i) {
         terrainPoints.emplace_back(i * TERRAIN_STEP, BASE_Y);
     }
 
@@ -71,49 +77,65 @@ void Terrain::generateTerrain() {
 
         terrainPoints.emplace_back(x, y);
     }
+    // Гора после финиша (правая стена)
+    float lastX = terrainPoints.back().x;
+    float endY = terrainPoints.back().y;
+    for (int j = 1; j <= 12; ++j) {
+        float x = lastX + j * TERRAIN_STEP;
+        float y = endY - j; // крутой спуск вниз
+        terrainPoints.push_back(b2Vec2(x, y));
+    }
     // Финишная линия должна быть перед последней точкой трассы
-    finishLineX = terrainPoints[terrainPoints.size() - 20].x; // За 20 точек до конца
+    finishLineX = terrainPoints[terrainPoints.size() - 15].x; // За 15 точек до конца
 }
 
 void Terrain::createMesh() {
     groundMesh.setPrimitiveType(sf::TriangleStrip);
     const float bottomY = 5000.0f;
-    const float textureWidth = 204.0f;  // Ширина текстуры
-    const float textureHeight = 192.0f; // Высота текстуры
-    const float uvScale = 20.f;         // Масштаб UV-координат
+    const float textureWidth = 204.0f;
+    const float textureHeight = 192.0f;
+    const float uvScale = 20.f;
 
     float textureOffsetX = 0.0f;
+    const size_t safeStart = 6; // Не интерполируем первые 6 точек (гору и платформу)
 
     for (size_t i = 1; i + 2 < terrainPoints.size(); ++i) {
         for (int j = 0; j < 5; ++j) {
             float t = static_cast<float>(j) / 5;
-            b2Vec2 pt = calculateSmoothPoint(i, t);
+            b2Vec2 pt;
+
+            if (i < safeStart) {
+                // Без интерполяции — используем ровно текущую точку
+                pt = terrainPoints[i];
+            }
+            else {
+                // Плавная кривая — обычная интерполяция
+                pt = calculateSmoothPoint(i, t);
+            }
 
             float x = pt.x * SCALE;
             float y = pt.y * SCALE;
 
-            // Вычисляем длину сегмента в текстуре (горизонтальное наложение)
             if (i > 0) {
                 float segmentLength = b2Distance(terrainPoints[i - 1], terrainPoints[i]) * SCALE;
                 textureOffsetX += segmentLength / textureWidth * uvScale;
             }
 
-            // Верхняя точка (поверхность дороги)
             groundMesh.append(sf::Vertex(
                 sf::Vector2f(x, y),
-                sf::Vector2f(textureOffsetX, 0.0f) // Верх текстуры
+                sf::Vector2f(textureOffsetX, 0.0f)
             ));
 
-            // Нижняя точка (дно мира)
             groundMesh.append(sf::Vertex(
                 sf::Vector2f(x, bottomY),
-                sf::Vector2f(textureOffsetX, 1800.0f) // Низ текстуры (фиксированное значение)
+                sf::Vector2f(textureOffsetX, 1800.0f)
             ));
         }
     }
 
     groundState.texture = &groundTexture;
 }
+
 
 void Terrain::createPhysics(b2World& world) {
     b2BodyDef groundDef;

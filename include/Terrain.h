@@ -20,13 +20,13 @@ public:
     const std::vector<b2Vec2>& getPoints() const;
     float getFinishLineX() const { return finishLineX; }
 
+    std::vector<b2Vec2> terrainPoints;
 private:
     void generateTerrain();
     void createMesh();
     void createPhysics(b2World& world);
     b2Vec2 calculateSmoothPoint(size_t i, float t);
 
-    std::vector<b2Vec2> terrainPoints;
     sf::VertexArray groundMesh;
     sf::RenderStates groundState;
     const sf::Texture& groundTexture;

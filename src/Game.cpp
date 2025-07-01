@@ -61,10 +61,14 @@ void Game::run() {
         float dt = clock.restart().asSeconds();
         processEvents();
 
-        if (!inMenu) {
+        if (!inMenu && !gameFinished) {
             update(dt);
         }
-
+        if (gameFinished) {
+            showVictoryScreen();
+            gameFinished = false; // Чтобы showVictoryScreen() не вызывалась снова
+            continue;
+        }
         render();
     }
 }
@@ -97,12 +101,13 @@ void Game::processEvents() {
             if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::M) {
                 inMenu = true;
             }
-
-            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::LShift) {
+            else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) {
+                inMenu = true;  // Теперь по нажатию R сразу в меню
+            }
+            else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::LShift) {
                 if (nitroAmount > 0.1f) nitroActive = true;
             }
-
-            if (event.type == sf::Event::KeyReleased && event.key.code == sf::Keyboard::LShift) {
+            else if (event.type == sf::Event::KeyReleased && event.key.code == sf::Keyboard::LShift) {
                 nitroActive = false;
             }
         }
@@ -138,7 +143,6 @@ void Game::drawHUD() {
     // Восстанавливаем игровой вид
     window.setView(camera->getView());
 
-    checkFinish();
 }
 
 
@@ -148,7 +152,7 @@ void Game::drawHUD() {
 void Game::setupWorld() {
     std::random_device rd;
     std::mt19937 rng(rd());
-    world.SetGravity(b2Vec2(0, currentTheme == EARTH ? 10.8f : 4.6f));
+    world.SetGravity(b2Vec2(0, currentTheme == EARTH ? 9.8f : 4.6f));
 
     // Генерация террейна
     terrain = std::make_unique<Terrain>(world, groundTexture);
@@ -185,7 +189,7 @@ void Game::setupWorld() {
         for (size_t i = 20; i < terrain->getPoints().size(); i += 10) {
             const auto& pt = terrain->getPoints()[i];
             float x = pt.x * SCALE + decXOffset(rng) * 70.f;
-            float y = pt.y * SCALE +2.f;
+            float y = pt.y * SCALE +3.1f;
 
             if (decType(rng) <= 2) {
                 decorations.emplace_back(bushTexture, sf::Vector2f(x, y));
@@ -234,18 +238,16 @@ void Game::setupWorld() {
             currentTheme == EARTH ? 0.8f : 0.4f);
     }
 
-    // Создание машины
-    float startX = points[5].x + 1.5f;
-    float startY = points[5].y - 1.8f;
+    // Создание машины - сдвигаем начальную позицию правее
+    float startX = points[10].x + 3.0f;  // Было points[5].x + 1.5f
+    float startY = points[10].y - 1.8f;
     car = std::make_unique<Car>(world,
         currentTheme == EARTH ? 1.5f : 0.8f,
         currentTheme == EARTH ? 1.2f : 0.6f);
-    car->getBody()->SetTransform(b2Vec2(startX, startY), 0);
+    car->getBody()->SetTransform(b2Vec2(startX, startY), 13 * b2_pi / 6);
 
-    terrain->draw(window);
-    terrain->getPoints();
-    terrain->getFinishLineX();
     setupFinish();
+    std::cout << "Finish line at x = " << finishLineX << std::endl;
 }
 
 
@@ -272,7 +274,7 @@ void Game::update(float dt) {
     camera->update(sf::Vector2f(carPos.x * SCALE, carPos.y * SCALE), speedRatio, dt);
 
     // Настройка сбора монет
-    const float collectionRadius = 1.7f;
+    const float collectionRadius = 2.3f;
     for (auto it = coins.begin(); it != coins.end(); ) {
         if (!(*it)->isCollected()) {
             b2Vec2 carPos = car->getPosition();
@@ -301,6 +303,9 @@ void Game::update(float dt) {
         obstacle.update();
     }
     updateHUD();
+    checkFinish();
+    std::cout << "Car X = " << car->getPosition().x << std::endl;
+
 }
 
 
@@ -309,6 +314,7 @@ void Game::render() {
     window.clear();
 
     if (inMenu) {
+        window.setView(window.getDefaultView());
         menu.draw(window);
     }
     else {
@@ -320,6 +326,10 @@ void Game::render() {
         window.draw(backgroundSprite);
         window.setView(camera->getView());
 
+        // Финишный флаг
+        window.draw(finishFlag);
+
+
         // Облака только для Земли
         if (currentTheme == EARTH) {
             for (auto& cloud : clouds) {
@@ -328,8 +338,6 @@ void Game::render() {
             }
         }
 
-        // Земля
-        terrain->draw(window);
 
         // Декорации только для Земли
         if (currentTheme == EARTH) {
@@ -337,6 +345,9 @@ void Game::render() {
                 deco.draw(window);
             }
         }
+
+        // Земля
+        terrain->draw(window);
 
         // Монеты
         for (auto& coin : coins) {
@@ -347,10 +358,6 @@ void Game::render() {
         for (auto& obstacle : obstacles) {
             obstacle.draw(window);
         }
-
-        // Финишный флаг
-        window.draw(finishFlag);  // Добавлено
-
 
         // Машина
         car->draw(window);
@@ -521,64 +528,56 @@ void Decoration::draw(sf::RenderWindow& window) const {
 
 
 void Game::setupFinish() {
+    // Пытаемся загрузить текстуру флага
     if (!finishTexture.loadFromFile("imgs/finish_flag.png")) {
-        // Если не удалось загрузить текстуру, создадим простой флаг
+        // Создаем простую текстуру для отладки
         finishTexture.create(128, 256);
         sf::Uint8* pixels = new sf::Uint8[128 * 256 * 4];
-        // Создаем полосатый флаг (черно-белый)
         for (int y = 0; y < 256; y++) {
             for (int x = 0; x < 128; x++) {
                 int index = (y * 128 + x) * 4;
                 bool stripe = (y / 16) % 2 == 0;
-                pixels[index] = stripe ? 255 : 0;     // R
-                pixels[index + 1] = stripe ? 255 : 0;   // G
-                pixels[index + 2] = stripe ? 255 : 0;   // B
-                pixels[index + 3] = 255;                // A
+                pixels[index] = stripe ? 255 : 0;
+                pixels[index + 1] = stripe ? 0 : 255;
+                pixels[index + 2] = 0;
+                pixels[index + 3] = 255;
             }
         }
         finishTexture.update(pixels);
         delete[] pixels;
     }
-
     finishFlag.setTexture(finishTexture);
     finishLineX = terrain->getFinishLineX();
 
     // Получаем Y-координату дороги в точке финиша
     const auto& points = terrain->getPoints();
-    float roadY = points.back().y * SCALE; // Берем Y последней точки трассы
+    float roadY = points.back().y * SCALE;
 
-    // Устанавливаем позицию флага - ставим его прямо на дорогу
-    finishFlag.setPosition(finishLineX * SCALE, roadY - finishTexture.getSize().y * 0.5f);
+    // Критическое исправление: устанавливаем флаг перед последним сегментом трассы
+    finishFlag.setPosition(finishLineX * SCALE, roadY);
+
     finishFlag.setScale(0.5f, 0.5f);
-    finishFlag.setOrigin(0, finishTexture.getSize().y); // Точка вращения внизу флага
+    finishFlag.setOrigin(0, finishTexture.getSize().y);
+
 
     gameFinished = false;
+
 }
+
 void Game::checkFinish() {
     if (!gameFinished && car && car->getPosition().x >= finishLineX) {
         gameFinished = true;
-        showVictoryScreen();
     }
 }
 void Game::showVictoryScreen() {
+    // Убедимся, что окно активно
+    if (!window.isOpen()) return;
 
-    // Сохраняем текущий вид
+    // Сохраняем текущую позицию камеры
     sf::View currentView = window.getView();
-
-    // Устанавливаем вид по умолчанию для оверлея и текста
     window.setView(window.getDefaultView());
-    // Сначала рисуем обычный кадр игры
-    render();
 
-    // Затем создаем полупрозрачный оверлей
-    sf::RectangleShape overlay(sf::Vector2f(window.getSize().x, window.getSize().y));
-    overlay.setFillColor(sf::Color(0, 0, 0, 180));
-    window.draw(overlay);
-
-    // Настраиваем текст победы
-    victoryText.setFont(font);
-
-    // Форматируем время
+    // Подготовка текста
     int seconds = static_cast<int>(gameClock.getElapsedTime().asSeconds());
     int minutes = seconds / 60;
     seconds %= 60;
@@ -589,46 +588,56 @@ void Game::showVictoryScreen() {
         "Distance: " + std::to_string(static_cast<int>(distance)) + "m\n"
         "Time: " + std::to_string(minutes) + ":" + (seconds < 10 ? "0" : "") + std::to_string(seconds)
     );
-    victoryText.setCharacterSize(60);
-    victoryText.setFillColor(sf::Color::Yellow);
-    victoryText.setOutlineColor(sf::Color::Black);
-    victoryText.setOutlineThickness(3);
 
-    // Центрируем текст
+    // Центрирование текста
     sf::FloatRect textBounds = victoryText.getLocalBounds();
     victoryText.setOrigin(textBounds.width / 2, textBounds.height / 2);
-    victoryText.setPosition(window.getSize().x / 2, window.getSize().y / 2);
+    victoryText.setPosition(window.getSize().x / 2, window.getSize().y / 2 - 50);
 
-    // Текст "Нажмите любую клавишу"
+    // Оверлей и текст продолжения
+    sf::RectangleShape overlay(sf::Vector2f(window.getSize().x, window.getSize().y));
+    overlay.setFillColor(sf::Color(0, 0, 0, 180));
+
     sf::Text continueText;
     continueText.setFont(font);
     continueText.setString("Press any key to continue");
     continueText.setCharacterSize(30);
     continueText.setFillColor(sf::Color::White);
-    continueText.setOutlineColor(sf::Color::Black);
-    continueText.setOutlineThickness(2);
+    continueText.setPosition(window.getSize().x / 2, window.getSize().y / 2 + 100);
+    sf::FloatRect contBounds = continueText.getLocalBounds();
+    continueText.setOrigin(contBounds.width / 2, contBounds.height / 2);
 
-    sf::FloatRect continueBounds = continueText.getLocalBounds();
-    continueText.setOrigin(continueBounds.width / 2, continueBounds.height / 2);
-    continueText.setPosition(window.getSize().x / 2, window.getSize().y / 2 + 150);
-
-    // Рисуем все элементы
-    window.draw(victoryText);
-    window.draw(continueText);
-    window.display();
-
-    // Ждем нажатия любой клавиши
-    sf::Event event;
+    // Основной цикл экрана победы
+    sf::Clock displayClock;
     bool waiting = true;
-    while (waiting && window.waitEvent(event)) {
-        if (event.type == sf::Event::KeyPressed ||
-            event.type == sf::Event::MouseButtonPressed ||
-            event.type == sf::Event::Closed) {
-            waiting = false;
+
+    // ОЧИСТКА очереди событий перед началом
+    sf::Event flush;
+    while (window.pollEvent(flush)) {}
+
+    while (waiting && window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+                return;
+            }
+            if (event.type == sf::Event::KeyPressed ||
+                event.type == sf::Event::MouseButtonPressed) {
+                waiting = false;
+            }
         }
+
+        // Отрисовка
+        window.clear();
+        render(); // Основная сцена
+        window.draw(overlay);
+        window.draw(victoryText);
+        window.draw(continueText);
+        window.display();
     }
 
     inMenu = true;
-    // Восстанавливаем вид
+    menu.setup(window.getSize());
     window.setView(currentView);
 }
